@@ -54,13 +54,14 @@ rule("fishnet.shared")
             target:add("cxxflags", "-fvisibility=hidden")
             target:add("cxxflags", "-fvisibility-inlines-hidden")
         end
-
         if target:is_plat("linux") then
             local ver = target:version()
-            if ver then
-                local major = ver:major()
-                target:add("ldflags", "-Wl,-soname,lib" .. target:name() .. ".so." .. major,
-                           {tools = {"gcc", "gxx", "clang", "clangxx"}})
+            if ver and ver.major then
+                local ok, major = pcall(function() return ver:major() end)
+                if ok and major then
+                    target:add("ldflags", "-Wl,-soname,lib" .. target:name() .. ".so." .. major,
+                               {tools = {"gcc", "gxx", "clang", "clangxx"}})
+                end
             end
         end
 

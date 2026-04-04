@@ -42,14 +42,12 @@ jobs:
         with:
           xmake-version: latest
 
-      - name: Configure
-        run: xmake f -m release --bedrock=y -a ${{ matrix.arch }} -y
+      - name: Build Release
+        run: |
+          xmake f -m release --bedrock=y -a ${{ matrix.arch }} -y
+          xmake build -y
 
-      - name: Build
-        run: xmake build -y
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: fishnet-${{ matrix.name }}
-          path: bin/
+      - name: Build Debug
+        run: |
+          xmake f -m debug --bedrock=y -a ${{ matrix.arch }} -y
+          xmake build -y

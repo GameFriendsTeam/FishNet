@@ -14,55 +14,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: windows-latest
-            arch: x64
-            name: windows-x64
-            bedrock: false
-          - os: windows-latest
-            arch: arm64
-            name: windows-arm64
-            bedrock: false
-          - os: macos-latest
-            arch: x86_64
-            name: macos-x64
-            bedrock: false
-          - os: macos-latest
-            arch: arm64
-            name: macos-arm64
-            bedrock: false
-          - os: ubuntu-latest
-            arch: x86_64
-            name: linux-x64
-            bedrock: false
-          - os: ubuntu-latest
-            arch: aarch64
-            name: linux-arm64
-            bedrock: false
+          - { os: windows-latest, arch: x64,     name: windows-x64,          bedrock: false }
+          - { os: windows-latest, arch: arm64,   name: windows-arm64,        bedrock: false }
+          - { os: macos-latest,   arch: x86_64,  name: macos-x64,            bedrock: false }
+          - { os: macos-latest,   arch: arm64,   name: macos-arm64,          bedrock: false }
+          - { os: ubuntu-latest,  arch: x86_64,  name: linux-x64,            bedrock: false }
+          - { os: ubuntu-latest,  arch: aarch64, name: linux-arm64,          bedrock: false }
 
-          - os: windows-latest
-            arch: x64
-            name: windows-x64-bedrock
-            bedrock: true
-          - os: windows-latest
-            arch: arm64
-            name: windows-arm64-bedrock
-            bedrock: true
-          - os: macos-latest
-            arch: x86_64
-            name: macos-x64-bedrock
-            bedrock: true
-          - os: macos-latest
-            arch: arm64
-            name: macos-arm64-bedrock
-            bedrock: true
-          - os: ubuntu-latest
-            arch: x86_64
-            name: linux-x64-bedrock
-            bedrock: true
-          - os: ubuntu-latest
-            arch: aarch64
-            name: linux-arm64-bedrock
-            bedrock: true
+          - { os: windows-latest, arch: x64,     name: windows-x64-bedrock,  bedrock: true }
+          - { os: windows-latest, arch: arm64,   name: windows-arm64-bedrock,bedrock: true }
+          - { os: macos-latest,   arch: x86_64,  name: macos-x64-bedrock,    bedrock: true }
+          - { os: macos-latest,   arch: arm64,   name: macos-arm64-bedrock,  bedrock: true }
+          - { os: ubuntu-latest,  arch: x86_64,  name: linux-x64-bedrock,    bedrock: true }
+          - { os: ubuntu-latest,  arch: aarch64, name: linux-arm64-bedrock,  bedrock: true }
 
     runs-on: ${{ matrix.os }}
     name: Build (${{ matrix.name }})
@@ -75,50 +39,78 @@ jobs:
         with:
           xmake-version: latest
 
-      - name: Configure
-        run: xmake f -m release --bedrock=${{ matrix.bedrock && 'y' || 'n' }} -a ${{ matrix.arch }} -y
+      - name: Build Release
+        run: |
+          xmake f -m release --bedrock=${{ matrix.bedrock && 'y' || 'n' }} -a ${{ matrix.arch }} -y
+          xmake build -y
 
-      - name: Build
-        run: xmake build -y
-
-      - name: Package (Windows)
+      - name: Package Release (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
           $tag = "${{ github.ref_name }}"
-          $archiveName = "fishnet-${tag}-${{ matrix.name }}"
-          New-Item -ItemType Directory -Path "dist/$archiveName/include" -Force
-          New-Item -ItemType Directory -Path "dist/$archiveName/lib" -Force
-          New-Item -ItemType Directory -Path "dist/$archiveName/bin" -Force
-          Copy-Item -Recurse "src/include/*" "dist/$archiveName/include/"
-          if ("${{ matrix.bedrock }}" -eq "true") {
-            Copy-Item -Recurse "src-bedrock/include/*" "dist/$archiveName/include/"
-          }
-          Copy-Item "LICENSE" "dist/$archiveName/"
-          $binDir = "bin/release/windows"
-          if (Test-Path "$binDir/fishnet.dll") { Copy-Item "$binDir/fishnet.dll" "dist/$archiveName/bin/" }
-          if (Test-Path "$binDir/fishnet.lib") { Copy-Item "$binDir/fishnet.lib" "dist/$archiveName/lib/" }
-          Get-ChildItem "$binDir/example_*" -ErrorAction SilentlyContinue | Copy-Item -Destination "dist/$archiveName/bin/"
-          Compress-Archive -Path "dist/$archiveName" -DestinationPath "dist/$archiveName.zip"
+          $name = "fishnet-${tag}-${{ matrix.name }}-release"
+          New-Item -ItemType Directory -Path "dist/$name/include","dist/$name/lib","dist/$name/bin" -Force
+          Copy-Item -Recurse "src/include/*" "dist/$name/include/"
+          if ("${{ matrix.bedrock }}" -eq "true") { Copy-Item -Recurse "src-bedrock/include/*" "dist/$name/include/" }
+          Copy-Item "LICENSE" "dist/$name/"
+          $bin = "bin/release/windows"
+          if (Test-Path "$bin/fishnet.dll") { Copy-Item "$bin/fishnet.dll" "dist/$name/bin/" }
+          if (Test-Path "$bin/fishnet.lib") { Copy-Item "$bin/fishnet.lib" "dist/$name/lib/" }
+          Get-ChildItem "$bin/example_*" -ErrorAction SilentlyContinue | Copy-Item -Destination "dist/$name/bin/"
+          Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
 
-      - name: Package (macOS/Linux)
+      - name: Package Release (macOS/Linux)
         if: runner.os != 'Windows'
         run: |
           TAG="${{ github.ref_name }}"
-          ARCHIVE="fishnet-${TAG}-${{ matrix.name }}"
-          mkdir -p "dist/${ARCHIVE}/include" "dist/${ARCHIVE}/lib" "dist/${ARCHIVE}/bin"
-          cp -r src/include/* "dist/${ARCHIVE}/include/"
-          if [ "${{ matrix.bedrock }}" = "true" ]; then
-            cp -r src-bedrock/include/* "dist/${ARCHIVE}/include/"
-          fi
-          cp LICENSE "dist/${ARCHIVE}/"
+          NAME="fishnet-${TAG}-${{ matrix.name }}-release"
+          mkdir -p "dist/${NAME}/include" "dist/${NAME}/lib" "dist/${NAME}/bin"
+          cp -r src/include/* "dist/${NAME}/include/"
+          [ "${{ matrix.bedrock }}" = "true" ] && cp -r src-bedrock/include/* "dist/${NAME}/include/"
+          cp LICENSE "dist/${NAME}/"
           PLAT=$([ "$(uname)" = "Darwin" ] && echo "macosx" || echo "linux")
-          BINDIR="bin/release/${PLAT}"
-          cp ${BINDIR}/libfishnet.* "dist/${ARCHIVE}/lib/" 2>/dev/null || true
-          cp ${BINDIR}/example_* "dist/${ARCHIVE}/bin/" 2>/dev/null || true
-          cd dist && zip -r "${ARCHIVE}.zip" "${ARCHIVE}"
+          cp bin/release/${PLAT}/libfishnet.* "dist/${NAME}/lib/" 2>/dev/null || true
+          cp bin/release/${PLAT}/example_* "dist/${NAME}/bin/" 2>/dev/null || true
+          cd dist && zip -r "${NAME}.zip" "${NAME}"
 
-      - name: Upload artifact
+      - name: Build Debug
+        run: |
+          xmake f -m debug --bedrock=${{ matrix.bedrock && 'y' || 'n' }} -a ${{ matrix.arch }} -y
+          xmake build -y
+
+      - name: Package Debug (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $name = "fishnet-${tag}-${{ matrix.name }}-debug"
+          New-Item -ItemType Directory -Path "dist/$name/include","dist/$name/lib","dist/$name/bin" -Force
+          Copy-Item -Recurse "src/include/*" "dist/$name/include/"
+          if ("${{ matrix.bedrock }}" -eq "true") { Copy-Item -Recurse "src-bedrock/include/*" "dist/$name/include/" }
+          Copy-Item "LICENSE" "dist/$name/"
+          $bin = "bin/debug/windows"
+          if (Test-Path "$bin/fishnet.dll") { Copy-Item "$bin/fishnet.dll" "dist/$name/bin/" }
+          if (Test-Path "$bin/fishnet.lib") { Copy-Item "$bin/fishnet.lib" "dist/$name/lib/" }
+          if (Test-Path "$bin/fishnet.pdb") { Copy-Item "$bin/fishnet.pdb" "dist/$name/bin/" }
+          Get-ChildItem "$bin/example_*" -ErrorAction SilentlyContinue | Copy-Item -Destination "dist/$name/bin/"
+          Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
+
+      - name: Package Debug (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: |
+          TAG="${{ github.ref_name }}"
+          NAME="fishnet-${TAG}-${{ matrix.name }}-debug"
+          mkdir -p "dist/${NAME}/include" "dist/${NAME}/lib" "dist/${NAME}/bin"
+          cp -r src/include/* "dist/${NAME}/include/"
+          [ "${{ matrix.bedrock }}" = "true" ] && cp -r src-bedrock/include/* "dist/${NAME}/include/"
+          cp LICENSE "dist/${NAME}/"
+          PLAT=$([ "$(uname)" = "Darwin" ] && echo "macosx" || echo "linux")
+          cp bin/debug/${PLAT}/libfishnet.* "dist/${NAME}/lib/" 2>/dev/null || true
+          cp bin/debug/${PLAT}/example_* "dist/${NAME}/bin/" 2>/dev/null || true
+          cd dist && zip -r "${NAME}.zip" "${NAME}"
+
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: fishnet-${{ matrix.name }}
@@ -175,11 +167,27 @@ jobs:
 
             ## Downloads
 
-            **Core** (generic RakNet, no Bedrock):
-            `fishnet-${{ github.ref_name }}-<platform>.zip`
+            **Core** (generic RakNet):
+            | Platform | Release | Debug |
+            |----------|---------|-------|
+            | Windows x64 | `fishnet-${{ github.ref_name }}-windows-x64-release.zip` | `fishnet-${{ github.ref_name }}-windows-x64-debug.zip` |
+            | Windows arm64 | `fishnet-${{ github.ref_name }}-windows-arm64-release.zip` | `fishnet-${{ github.ref_name }}-windows-arm64-debug.zip` |
+            | macOS x64 | `fishnet-${{ github.ref_name }}-macos-x64-release.zip` | `fishnet-${{ github.ref_name }}-macos-x64-debug.zip` |
+            | macOS arm64 | `fishnet-${{ github.ref_name }}-macos-arm64-release.zip` | `fishnet-${{ github.ref_name }}-macos-arm64-debug.zip` |
+            | Linux x64 | `fishnet-${{ github.ref_name }}-linux-x64-release.zip` | `fishnet-${{ github.ref_name }}-linux-x64-debug.zip` |
+            | Linux arm64 | `fishnet-${{ github.ref_name }}-linux-arm64-release.zip` | `fishnet-${{ github.ref_name }}-linux-arm64-debug.zip` |
 
             **Bedrock** (core + Minecraft Bedrock extension):
-            `fishnet-${{ github.ref_name }}-<platform>-bedrock.zip`
+            | Platform | Release | Debug |
+            |----------|---------|-------|
+            | Windows x64 | `fishnet-${{ github.ref_name }}-windows-x64-bedrock-release.zip` | `fishnet-${{ github.ref_name }}-windows-x64-bedrock-debug.zip` |
+            | Windows arm64 | `fishnet-${{ github.ref_name }}-windows-arm64-bedrock-release.zip` | `fishnet-${{ github.ref_name }}-windows-arm64-bedrock-debug.zip` |
+            | macOS x64 | `fishnet-${{ github.ref_name }}-macos-x64-bedrock-release.zip` | `fishnet-${{ github.ref_name }}-macos-x64-bedrock-debug.zip` |
+            | macOS arm64 | `fishnet-${{ github.ref_name }}-macos-arm64-bedrock-release.zip` | `fishnet-${{ github.ref_name }}-macos-arm64-bedrock-debug.zip` |
+            | Linux x64 | `fishnet-${{ github.ref_name }}-linux-x64-bedrock-release.zip` | `fishnet-${{ github.ref_name }}-linux-x64-bedrock-debug.zip` |
+            | Linux arm64 | `fishnet-${{ github.ref_name }}-linux-arm64-bedrock-release.zip` | `fishnet-${{ github.ref_name }}-linux-arm64-bedrock-debug.zip` |
+
+            > Debug builds include packet logging (`FISHNET_DEBUG`) and `.pdb` files on Windows.
 
             ## SHA256 Checksums
             ```
@@ -187,12 +195,8 @@ jobs:
             ```
 
             ## License
-            GPL-3.0 — see [LICENSE](LICENSE) for details.
-
-            ## Credits
-            FishNet is a clean-room RakNet protocol implementation.
-            Original RakNet by Jenkins Software / Oculus VR (BSD 2-Clause):
-            https://github.com/facebookarchive/RakNet
+            GPL-3.0 — see [LICENSE](LICENSE).
+            Original RakNet: https://github.com/facebookarchive/RakNet (BSD 2-Clause)
           files: |
             release-files/*.zip
             release-files/SHA256SUMS.txt
