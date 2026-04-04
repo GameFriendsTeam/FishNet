@@ -1,0 +1,200 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            arch: x64
+            name: windows-x64
+            bedrock: false
+          - os: windows-latest
+            arch: arm64
+            name: windows-arm64
+            bedrock: false
+          - os: macos-latest
+            arch: x86_64
+            name: macos-x64
+            bedrock: false
+          - os: macos-latest
+            arch: arm64
+            name: macos-arm64
+            bedrock: false
+          - os: ubuntu-latest
+            arch: x86_64
+            name: linux-x64
+            bedrock: false
+          - os: ubuntu-latest
+            arch: aarch64
+            name: linux-arm64
+            bedrock: false
+
+          - os: windows-latest
+            arch: x64
+            name: windows-x64-bedrock
+            bedrock: true
+          - os: windows-latest
+            arch: arm64
+            name: windows-arm64-bedrock
+            bedrock: true
+          - os: macos-latest
+            arch: x86_64
+            name: macos-x64-bedrock
+            bedrock: true
+          - os: macos-latest
+            arch: arm64
+            name: macos-arm64-bedrock
+            bedrock: true
+          - os: ubuntu-latest
+            arch: x86_64
+            name: linux-x64-bedrock
+            bedrock: true
+          - os: ubuntu-latest
+            arch: aarch64
+            name: linux-arm64-bedrock
+            bedrock: true
+
+    runs-on: ${{ matrix.os }}
+    name: Build (${{ matrix.name }})
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup xmake
+        uses: xmake-io/github-action-setup-xmake@v1
+        with:
+          xmake-version: latest
+
+      - name: Configure
+        run: xmake f -m release --bedrock=${{ matrix.bedrock && 'y' || 'n' }} -a ${{ matrix.arch }} -y
+
+      - name: Build
+        run: xmake build -y
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $archiveName = "fishnet-${tag}-${{ matrix.name }}"
+          New-Item -ItemType Directory -Path "dist/$archiveName/include" -Force
+          New-Item -ItemType Directory -Path "dist/$archiveName/lib" -Force
+          New-Item -ItemType Directory -Path "dist/$archiveName/bin" -Force
+          Copy-Item -Recurse "src/include/*" "dist/$archiveName/include/"
+          if ("${{ matrix.bedrock }}" -eq "true") {
+            Copy-Item -Recurse "src-bedrock/include/*" "dist/$archiveName/include/"
+          }
+          Copy-Item "LICENSE" "dist/$archiveName/"
+          $binDir = "bin/release/windows"
+          if (Test-Path "$binDir/fishnet.dll") { Copy-Item "$binDir/fishnet.dll" "dist/$archiveName/bin/" }
+          if (Test-Path "$binDir/fishnet.lib") { Copy-Item "$binDir/fishnet.lib" "dist/$archiveName/lib/" }
+          Get-ChildItem "$binDir/example_*" -ErrorAction SilentlyContinue | Copy-Item -Destination "dist/$archiveName/bin/"
+          Compress-Archive -Path "dist/$archiveName" -DestinationPath "dist/$archiveName.zip"
+
+      - name: Package (macOS/Linux)
+        if: runner.os != 'Windows'
+        run: |
+          TAG="${{ github.ref_name }}"
+          ARCHIVE="fishnet-${TAG}-${{ matrix.name }}"
+          mkdir -p "dist/${ARCHIVE}/include" "dist/${ARCHIVE}/lib" "dist/${ARCHIVE}/bin"
+          cp -r src/include/* "dist/${ARCHIVE}/include/"
+          if [ "${{ matrix.bedrock }}" = "true" ]; then
+            cp -r src-bedrock/include/* "dist/${ARCHIVE}/include/"
+          fi
+          cp LICENSE "dist/${ARCHIVE}/"
+          PLAT=$([ "$(uname)" = "Darwin" ] && echo "macosx" || echo "linux")
+          BINDIR="bin/release/${PLAT}"
+          cp ${BINDIR}/libfishnet.* "dist/${ARCHIVE}/lib/" 2>/dev/null || true
+          cp ${BINDIR}/example_* "dist/${ARCHIVE}/bin/" 2>/dev/null || true
+          cd dist && zip -r "${ARCHIVE}.zip" "${ARCHIVE}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fishnet-${{ matrix.name }}
+          path: dist/*.zip
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    name: Publish Release
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Extract changelog for this tag
+        id: changelog
+        run: |
+          TAG="${{ github.ref_name }}"
+          BODY=$(awk "/^## \[${TAG}\]/{flag=1; next} /^## \[/{flag=0} flag" CHANGELOG.md)
+          if [ -z "$BODY" ]; then
+            BODY="Release ${TAG}"
+          fi
+          echo "body<<EOF" >> $GITHUB_OUTPUT
+          echo "$BODY" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Collect zip files
+        run: |
+          mkdir release-files
+          find artifacts/ -name "*.zip" -exec cp {} release-files/ \;
+          ls -la release-files/
+
+      - name: Generate SHA256 checksums
+        id: sha256
+        run: |
+          cd release-files
+          sha256sum *.zip > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          echo "sums<<EOF" >> $GITHUB_OUTPUT
+          cat SHA256SUMS.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: FishNet ${{ github.ref_name }}
+          body: |
+            ${{ steps.changelog.outputs.body }}
+
+            ## Downloads
+
+            **Core** (generic RakNet, no Bedrock):
+            `fishnet-${{ github.ref_name }}-<platform>.zip`
+
+            **Bedrock** (core + Minecraft Bedrock extension):
+            `fishnet-${{ github.ref_name }}-<platform>-bedrock.zip`
+
+            ## SHA256 Checksums
+            ```
+            ${{ steps.sha256.outputs.sums }}
+            ```
+
+            ## License
+            GPL-3.0 — see [LICENSE](LICENSE) for details.
+
+            ## Credits
+            FishNet is a clean-room RakNet protocol implementation.
+            Original RakNet by Jenkins Software / Oculus VR (BSD 2-Clause):
+            https://github.com/facebookarchive/RakNet
+          files: |
+            release-files/*.zip
+            release-files/SHA256SUMS.txt
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-A') || contains(github.ref_name, '-B') || contains(github.ref_name, '-RC') }}

@@ -1,0 +1,36 @@
+# Build
+build/
+bin/
+.xmake/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.sln
+*.vcxproj*
+*.user
+CMakeFiles/
+cmake-build-*/
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Compiled
+*.obj
+*.o
+*.lib
+*.a
+*.dll
+*.so
+*.dylib
+*.exe
+*.pdb
+*.ilk
+*.exp
+
+# Packages
+*.zip
+*.tar.gz
