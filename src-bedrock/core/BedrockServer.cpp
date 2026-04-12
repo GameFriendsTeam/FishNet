@@ -1,19 +1,12 @@
-/*
- * BedrockServer Implementation
- *
- * Wires BedrockMotd into PongDataProvider.
- * Intercepts raw packets: if 0xFE, unwraps into sub-packets
- * and fires GamePacketCallback. Otherwise passes through.
- */
-
 #include "fishnet-bedrock/BedrockServer.h"
 
 namespace fishnet::bedrock {
 
-BedrockServer::BedrockServer(uint16_t port)
-    : server_(std::make_unique<fishnet::FishServer>(port)) {
+BedrockServer::BedrockServer(uint16_t port, const std::string& bindIp)
+    : server_(std::make_unique<fishnet::FishServer>(port, bindIp)) {
     motd_.serverId = server_->getPeer().getGuid();
     motd_.portV4 = port;
+    motd_.portV6 = port;
 
     server_->setPongDataProvider([this]() -> std::string {
         std::lock_guard<std::mutex> lock(motdMutex_);
@@ -62,6 +55,22 @@ void BedrockServer::setGameMode(const std::string& mode, int numeric) {
     motd_.gameModeNumeric = numeric;
 }
 
+void BedrockServer::setMotdPorts(uint16_t portV4, uint16_t portV6) {
+    std::lock_guard<std::mutex> lock(motdMutex_);
+    motd_.portV4 = portV4;
+    motd_.portV6 = portV6;
+}
+
+void BedrockServer::setMotdPortV4(uint16_t port) {
+    std::lock_guard<std::mutex> lock(motdMutex_);
+    motd_.portV4 = port;
+}
+
+void BedrockServer::setMotdPortV6(uint16_t port) {
+    std::lock_guard<std::mutex> lock(motdMutex_);
+    motd_.portV6 = port;
+}
+
 void BedrockServer::setGamePacketCallback(GamePacketCallback cb) { gamePacketCallback_ = std::move(cb); }
 void BedrockServer::setConnectionCallback(fishnet::ConnectionCallback cb) { server_->setConnectionCallback(std::move(cb)); }
 void BedrockServer::setDisconnectCallback(fishnet::DisconnectCallback cb) { server_->setDisconnectCallback(std::move(cb)); }
@@ -81,7 +90,21 @@ void BedrockServer::sendGamePacket(uint32_t packetId, const uint8_t* data, size_
 
 void BedrockServer::sendGamePackets(const std::vector<SubPacket>& packets,
                                      const fishnet::Address& dest) {
-    auto frame = GamePacket::wrap(packets, compression_, compressor_);
+    auto frame = GamePacket::wrap(packets, compression_, compressor_, true);
+    server_->sendReliableTo(frame.data(), frame.size(), dest);
+}
+
+void BedrockServer::sendPreLoginGamePacket(uint32_t packetId, const uint8_t* data, size_t len,
+                                           const fishnet::Address& dest) {
+    SubPacket sp;
+    sp.packetId = packetId;
+    if (data && len > 0) sp.payload.assign(data, data + len);
+    sendPreLoginGamePackets({sp}, dest);
+}
+
+void BedrockServer::sendPreLoginGamePackets(const std::vector<SubPacket>& packets,
+                                            const fishnet::Address& dest) {
+    auto frame = GamePacket::wrap(packets, CompressionMethod::None, nullptr, false);
     server_->sendReliableTo(frame.data(), frame.size(), dest);
 }
 
@@ -96,7 +119,7 @@ size_t BedrockServer::getConnectionCount() const { return server_->getConnection
 void BedrockServer::onRawPacket(const uint8_t* data, size_t len, const fishnet::Address& sender) {
     if (len >= 2 && data[0] == GAME_PACKET_ID) {
         std::vector<SubPacket> packets;
-        if (GamePacket::unwrap(data, len, packets, decompressor_)) {
+        if (GamePacket::unwrap(data, len, packets, decompressor_, GamePacketFormat::Auto)) {
             if (gamePacketCallback_) {
                 for (const auto& sp : packets) {
                     gamePacketCallback_(sp.packetId, sp.payload, sender);

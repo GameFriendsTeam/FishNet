@@ -14,6 +14,34 @@
 
 namespace fishnet {
 
+namespace {
+
+bool resolveBindAddressV4(const std::string& bindIp, in_addr& out) {
+    if (bindIp.empty() || bindIp == "*" || bindIp == "0.0.0.0" || bindIp == "any") {
+        out.s_addr = INADDR_ANY;
+        return true;
+    }
+
+    if (inet_pton(AF_INET, bindIp.c_str(), &out) == 1) {
+        return true;
+    }
+
+    addrinfo hints{};
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_DGRAM;
+
+    addrinfo* result = nullptr;
+    if (getaddrinfo(bindIp.c_str(), nullptr, &hints, &result) != 0 || result == nullptr) {
+        return false;
+    }
+
+    out = reinterpret_cast<sockaddr_in*>(result->ai_addr)->sin_addr;
+    freeaddrinfo(result);
+    return true;
+}
+
+} // namespace
+
 // Helpers
 
 uint64_t FishPeer::addrHash(const Address& addr) {
@@ -41,7 +69,8 @@ uint64_t FishPeer::getTimestamp() const {
 
 // Construction / destruction
 
-FishPeer::FishPeer(uint16_t port) : port_(port) {
+FishPeer::FishPeer(uint16_t port, const std::string& bindIp)
+    : port_(port), bindIp_(bindIp) {
     std::random_device rd;
     std::mt19937_64 gen(rd());
     guid_ = gen();
@@ -68,7 +97,11 @@ bool FishPeer::start() {
 
     sockaddr_in bindAddr{};
     bindAddr.sin_family = AF_INET;
-    bindAddr.sin_addr.s_addr = INADDR_ANY;
+    if (!resolveBindAddressV4(bindIp_, bindAddr.sin_addr)) {
+        platform::closeSocket(sock_);
+        sock_ = InvalidSocket;
+        return false;
+    }
     bindAddr.sin_port = htons(port_);
 
     if (bind(sock_, reinterpret_cast<sockaddr*>(&bindAddr), sizeof(bindAddr)) == SocketError) {
@@ -114,6 +147,8 @@ void FishPeer::stop() {
         std::lock_guard<std::mutex> lock(splitMutex_);
         splitStore_.clear();
     }
+    peerRecvState_.clear();
+    orderedStatesByPeer_.clear();
     platform::cleanupSockets();
 }
 

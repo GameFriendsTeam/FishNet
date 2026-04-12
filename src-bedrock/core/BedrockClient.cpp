@@ -1,10 +1,3 @@
-/*
- * BedrockClient Implementation
- *
- * Intercepts raw packets: if 0xFE, unwraps into sub-packets
- * and fires GamePacketCallback. Wraps outgoing sub-packets into 0xFE.
- */
-
 #include "fishnet-bedrock/BedrockClient.h"
 
 namespace fishnet::bedrock {
@@ -42,7 +35,19 @@ void BedrockClient::sendGamePacket(uint32_t packetId, const uint8_t* data, size_
 }
 
 void BedrockClient::sendGamePackets(const std::vector<SubPacket>& packets) {
-    auto frame = GamePacket::wrap(packets, compression_, compressor_);
+    auto frame = GamePacket::wrap(packets, compression_, compressor_, true);
+    client_->sendReliable(frame.data(), frame.size());
+}
+
+void BedrockClient::sendPreLoginGamePacket(uint32_t packetId, const uint8_t* data, size_t len) {
+    SubPacket sp;
+    sp.packetId = packetId;
+    if (data && len > 0) sp.payload.assign(data, data + len);
+    sendPreLoginGamePackets({sp});
+}
+
+void BedrockClient::sendPreLoginGamePackets(const std::vector<SubPacket>& packets) {
+    auto frame = GamePacket::wrap(packets, CompressionMethod::None, nullptr, false);
     client_->sendReliable(frame.data(), frame.size());
 }
 
@@ -53,7 +58,7 @@ void BedrockClient::sendRawPacket(const uint8_t* data, size_t len) {
 void BedrockClient::onRawPacket(const uint8_t* data, size_t len, const fishnet::Address& sender) {
     if (len >= 2 && data[0] == GAME_PACKET_ID) {
         std::vector<SubPacket> packets;
-        if (GamePacket::unwrap(data, len, packets, decompressor_)) {
+        if (GamePacket::unwrap(data, len, packets, decompressor_, GamePacketFormat::Auto)) {
             if (gamePacketCallback_) {
                 for (const auto& sp : packets) {
                     gamePacketCallback_(sp.packetId, sp.payload, sender);

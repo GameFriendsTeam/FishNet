@@ -45,6 +45,8 @@ public:
 
     void sendGamePacket(uint32_t packetId, const uint8_t* data, size_t len);
     void sendGamePackets(const std::vector<SubPacket>& packets);
+    void sendPreLoginGamePacket(uint32_t packetId, const uint8_t* data, size_t len);
+    void sendPreLoginGamePackets(const std::vector<SubPacket>& packets);
     void sendRawPacket(const uint8_t* data, size_t len);
 
     fishnet::FishClient& getFishClient() { return *client_; }

@@ -57,6 +57,49 @@ void FishPeer::handleConnectionRequest(const uint8_t* data, size_t len, const Ad
     ConnectionRequest req;
     if (!ConnectionRequest::decode(data, len, req)) return;
 
+    bool duplicateConnectedRequest = false;
+    {
+        std::lock_guard<std::mutex> lock(connMutex_);
+        auto* existing = findConnectionByAddr(sender);
+        if (existing && existing->guid == req.clientGuid && existing->connected) {
+            duplicateConnectedRequest = true;
+            existing->touch();
+        }
+    }
+
+    if (!duplicateConnectedRequest) {
+        // A fresh ConnectionRequest means a new RakNet session attempt.
+        // Reset transient receive/order/split state for this peer to avoid
+        // stale fragments or order indices blocking the new handshake.
+        {
+            const uint64_t ah = addrHash(sender);
+            peerRecvState_.erase(ah);
+            orderedStatesByPeer_.erase(ah);
+        }
+        {
+            std::lock_guard<std::mutex> lock(splitMutex_);
+            const uint32_t senderAddr = sender.raw.sin_addr.s_addr;
+            const uint16_t senderPort = ntohs(sender.raw.sin_port);
+            for (auto it = splitStore_.begin(); it != splitStore_.end(); ) {
+                if (it->first.addr == senderAddr && it->first.port == senderPort) {
+                    it = splitStore_.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        }
+        {
+            std::lock_guard<std::mutex> lock(sendMutex_);
+            for (auto it = pendingDatagrams_.begin(); it != pendingDatagrams_.end(); ) {
+                if (it->second.dest == sender) {
+                    it = pendingDatagrams_.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+        }
+    }
+
     #ifdef FISHNET_DEBUG
     std::printf("[FISHNET] ConnectionRequest raw (%zu bytes): ", len);
     for (size_t i = 0; i < len; ++i) {
@@ -69,11 +112,13 @@ void FishPeer::handleConnectionRequest(const uint8_t* data, size_t len, const Ad
                 req.useSecurity);
     #endif
 
-    Connection conn(sender, req.clientGuid);
-    {
-        std::lock_guard<std::mutex> lock(connMutex_);
-        connectionsByGuid_[req.clientGuid] = conn;
-        connectionsByAddr_[addrHash(sender)] = &connectionsByGuid_[req.clientGuid];
+    if (!duplicateConnectedRequest) {
+        Connection conn(sender, req.clientGuid);
+        {
+            std::lock_guard<std::mutex> lock(connMutex_);
+            connectionsByGuid_[req.clientGuid] = conn;
+            connectionsByAddr_[addrHash(sender)] = &connectionsByGuid_[req.clientGuid];
+        }
     }
 
     auto accepted = ConnectionRequestAccepted::encode(sender, req.requestTimestamp, getTimestamp());
@@ -93,9 +138,10 @@ void FishPeer::handleNewIncomingConnection(const uint8_t* data, size_t len, cons
     std::lock_guard<std::mutex> lock(connMutex_);
     auto* conn = findConnectionByAddr(sender);
     if (conn) {
+        const bool wasConnected = conn->connected;
         conn->connected = true;
         conn->touch();
-        if (connectionCallback_) {
+        if (!wasConnected && connectionCallback_) {
             connectionCallback_(sender, conn->guid);
         }
     }
@@ -104,12 +150,37 @@ void FishPeer::handleNewIncomingConnection(const uint8_t* data, size_t len, cons
 void FishPeer::handleDisconnect(const uint8_t* data, size_t len, const Address& sender) {
     (void)data; (void)len;
     uint64_t guid = 0;
+    const uint64_t ah = addrHash(sender);
     {
         std::lock_guard<std::mutex> lock(connMutex_);
         auto* conn = findConnectionByAddr(sender);
         if (!conn) return;
         guid = conn->guid;
         removeConnection(sender, guid);
+    }
+    peerRecvState_.erase(ah);
+    orderedStatesByPeer_.erase(ah);
+    {
+        std::lock_guard<std::mutex> lock(splitMutex_);
+        const uint32_t senderAddr = sender.raw.sin_addr.s_addr;
+        const uint16_t senderPort = ntohs(sender.raw.sin_port);
+        for (auto it = splitStore_.begin(); it != splitStore_.end(); ) {
+            if (it->first.addr == senderAddr && it->first.port == senderPort) {
+                it = splitStore_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+    {
+        std::lock_guard<std::mutex> lock(sendMutex_);
+        for (auto it = pendingDatagrams_.begin(); it != pendingDatagrams_.end(); ) {
+            if (it->second.dest == sender) {
+                it = pendingDatagrams_.erase(it);
+            } else {
+                ++it;
+            }
+        }
     }
     if (disconnectCallback_) disconnectCallback_(sender, guid);
 }

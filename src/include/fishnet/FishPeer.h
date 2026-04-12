@@ -31,6 +31,7 @@
 #include <functional>
 #include <map>
 #include <mutex>
+#include <string>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -61,7 +62,7 @@ struct PeerConfig {
 
 class FISHNET_API FishPeer {
 public:
-    explicit FishPeer(uint16_t port);
+    explicit FishPeer(uint16_t port, const std::string& bindIp = "0.0.0.0");
     ~FishPeer();
 
     FishPeer(const FishPeer&) = delete;
@@ -102,11 +103,13 @@ public:
     uint64_t getGuid() const { return guid_; }
     uint16_t getPort() const { return port_; }
     uint32_t getMtu() const { return mtu_; }
+    const std::string& getBindIp() const { return bindIp_; }
 
 private:
     // Socket
     SocketHandle sock_ = InvalidSocket;
     uint16_t port_;
+    std::string bindIp_;
     std::atomic<bool> running_{false};
 
     // Threads
@@ -173,7 +176,10 @@ private:
         uint32_t nextOrderIndex = 0;
         std::map<uint32_t, std::vector<uint8_t>> buffered;
     };
-    OrderedQueue orderedQueues_[32];
+    struct PeerOrderedState {
+        OrderedQueue channels[32];
+    };
+    std::unordered_map<uint64_t, PeerOrderedState> orderedStatesByPeer_;
 
     // Connections
     std::unordered_map<uint64_t, Connection> connectionsByGuid_;

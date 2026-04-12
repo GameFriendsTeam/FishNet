@@ -30,7 +30,27 @@ struct Address {
         std::memset(&raw, 0, sizeof(raw));
         raw.sin_family = AF_INET;
         raw.sin_port = htons(port);
-        inet_pton(AF_INET, ip.c_str(), &raw.sin_addr);
+        if (inet_pton(AF_INET, ip.c_str(), &raw.sin_addr) == 1) {
+            return;
+        }
+
+        addrinfo hints{};
+        hints.ai_family = AF_INET;
+        hints.ai_socktype = SOCK_DGRAM;
+
+        addrinfo* result = nullptr;
+        if (getaddrinfo(ip.c_str(), nullptr, &hints, &result) == 0 && result != nullptr) {
+            auto* addr = reinterpret_cast<sockaddr_in*>(result->ai_addr);
+            raw.sin_addr = addr->sin_addr;
+            freeaddrinfo(result);
+            return;
+        }
+
+        if (result) {
+            freeaddrinfo(result);
+        }
+
+        raw.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
     }
 
     std::string ip() const {

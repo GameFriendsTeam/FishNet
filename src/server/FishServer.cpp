@@ -9,8 +9,8 @@
 
 namespace fishnet {
 
-FishServer::FishServer(uint16_t port)
-    : peer_(std::make_unique<FishPeer>(port)) {}
+FishServer::FishServer(uint16_t port, const std::string& bindIp)
+    : peer_(std::make_unique<FishPeer>(port, bindIp)) {}
 
 FishServer::~FishServer() {
     stop();

@@ -88,6 +88,24 @@ void FishPeer::tickTimeouts() {
         }
     }
 
+    if (!timedOut.empty()) {
+        std::lock_guard<std::mutex> lock(sendMutex_);
+        for (auto it = pendingDatagrams_.begin(); it != pendingDatagrams_.end(); ) {
+            bool erase = false;
+            for (const auto& [addr, _guid] : timedOut) {
+                if (it->second.dest == addr) {
+                    erase = true;
+                    break;
+                }
+            }
+            if (erase) {
+                it = pendingDatagrams_.erase(it);
+            } else {
+                ++it;
+            }
+        }
+    }
+
     for (auto& [addr, guid] : timedOut) {
         if (disconnectCallback_) disconnectCallback_(addr, guid);
     }

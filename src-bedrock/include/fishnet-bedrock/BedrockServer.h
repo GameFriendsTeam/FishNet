@@ -19,6 +19,7 @@
 #include <memory>
 #include <mutex>
 #include <functional>
+#include <string>
 
 namespace fishnet::bedrock {
 
@@ -26,7 +27,7 @@ using GamePacketCallback = std::function<void(uint32_t packetId, const std::vect
 
 class FISHNET_API BedrockServer {
 public:
-    explicit BedrockServer(uint16_t port = 19132);
+    explicit BedrockServer(uint16_t port = 19132, const std::string& bindIp = "0.0.0.0");
     ~BedrockServer();
 
     bool start();
@@ -39,6 +40,9 @@ public:
     void setPlayerCount(int current, int max);
     void setLevelName(const std::string& name);
     void setGameMode(const std::string& mode, int numeric);
+    void setMotdPorts(uint16_t portV4, uint16_t portV6);
+    void setMotdPortV4(uint16_t port);
+    void setMotdPortV6(uint16_t port);
 
     void setGamePacketCallback(GamePacketCallback cb);
     void setConnectionCallback(fishnet::ConnectionCallback cb);
@@ -51,6 +55,8 @@ public:
 
     void sendGamePacket(uint32_t packetId, const uint8_t* data, size_t len, const fishnet::Address& dest);
     void sendGamePackets(const std::vector<SubPacket>& packets, const fishnet::Address& dest);
+    void sendPreLoginGamePacket(uint32_t packetId, const uint8_t* data, size_t len, const fishnet::Address& dest);
+    void sendPreLoginGamePackets(const std::vector<SubPacket>& packets, const fishnet::Address& dest);
     void sendRawPacket(const uint8_t* data, size_t len, const fishnet::Address& dest);
 
     void disconnectPeer(const fishnet::Address& peer);

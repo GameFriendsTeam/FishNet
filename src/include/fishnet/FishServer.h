@@ -15,12 +15,13 @@
 #include "fishnet/FishPeer.h"
 #include "fishnet/PacketHandler.h"
 #include <memory>
+#include <string>
 
 namespace fishnet {
 
 class FISHNET_API FishServer {
 public:
-    explicit FishServer(uint16_t port);
+    explicit FishServer(uint16_t port, const std::string& bindIp = "0.0.0.0");
     ~FishServer();
 
     bool start();

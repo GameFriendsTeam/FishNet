@@ -37,6 +37,12 @@ enum class CompressionMethod : uint8_t {
     None       = 0xFF
 };
 
+enum class GamePacketFormat : uint8_t {
+    Standard,                 // [0xFE][compression][batch]
+    PreLoginNoCompression,    // [0xFE][batch]
+    Auto                      // Try Standard first, then PreLogin
+};
+
 // VarInt helpers
 
 /// Write an unsigned varint to a buffer. Returns bytes written.
@@ -73,6 +79,8 @@ inline uint32_t readVarInt(const uint8_t* data, size_t len, size_t& offset) {
 /// A single Bedrock sub-packet inside a GamePacket batch
 struct SubPacket {
     uint32_t packetId = 0;
+    uint8_t senderSubClient = 0;
+    uint8_t targetSubClient = 0;
     std::vector<uint8_t> payload; // Raw packet data (without the varint ID prefix)
 };
 
@@ -105,27 +113,37 @@ struct FISHNET_API GamePacket {
     static std::vector<uint8_t> wrap(
         const std::vector<SubPacket>& subPackets,
         CompressionMethod method = CompressionMethod::None,
-        CompressFunc compressor = nullptr)
+        CompressFunc compressor = nullptr,
+        bool includeCompressionHeader = true)
     {
         // 1. Build the uncompressed batch payload
         std::vector<uint8_t> batch;
         batch.reserve(1024);
 
         for (const auto& sp : subPackets) {
-            // Each sub-packet: [varint totalLen] [varint packetId] [payload]
-            // totalLen = size of (varint packetId + payload)
+            uint32_t packetHeader = (sp.packetId & 0x3FFu) |
+                                    ((static_cast<uint32_t>(sp.senderSubClient) & 0x3u) << 10) |
+                                    ((static_cast<uint32_t>(sp.targetSubClient) & 0x3u) << 12);
 
-            // First, encode packetId as varint to know its size
-            std::vector<uint8_t> idBytes;
-            writeVarInt(idBytes, sp.packetId);
+            std::vector<uint8_t> headerBytes;
+            writeVarInt(headerBytes, packetHeader);
 
-            uint32_t totalLen = static_cast<uint32_t>(idBytes.size() + sp.payload.size());
+            uint32_t totalLen = static_cast<uint32_t>(headerBytes.size() + sp.payload.size());
             writeVarInt(batch, totalLen);
-            batch.insert(batch.end(), idBytes.begin(), idBytes.end());
+            batch.insert(batch.end(), headerBytes.begin(), headerBytes.end());
             batch.insert(batch.end(), sp.payload.begin(), sp.payload.end());
         }
 
-        // 2. Compress if requested
+        // 2. Pre-login format has no compression byte
+        if (!includeCompressionHeader) {
+            std::vector<uint8_t> preLogin;
+            preLogin.reserve(1 + batch.size());
+            preLogin.push_back(GAME_PACKET_ID);
+            preLogin.insert(preLogin.end(), batch.begin(), batch.end());
+            return preLogin;
+        }
+
+        // 3. Compress if requested
         std::vector<uint8_t> compressed;
         bool didCompress = false;
 
@@ -133,7 +151,7 @@ struct FISHNET_API GamePacket {
             didCompress = compressor(batch.data(), batch.size(), compressed);
         }
 
-        // 3. Build final 0xFE frame
+        // 4. Build final 0xFE frame
         std::vector<uint8_t> result;
         result.reserve(2 + (didCompress ? compressed.size() : batch.size()));
         result.push_back(GAME_PACKET_ID);
@@ -176,49 +194,105 @@ struct FISHNET_API GamePacket {
     static bool unwrap(
         const uint8_t* data, size_t len,
         std::vector<SubPacket>& out,
-        DecompressFunc decompressor = nullptr)
+        DecompressFunc decompressor = nullptr,
+        GamePacketFormat format = GamePacketFormat::Auto,
+        CompressionMethod* outMethod = nullptr)
     {
         if (len < 2) return false;
         if (data[0] != GAME_PACKET_ID) return false;
 
-        auto method = static_cast<CompressionMethod>(data[1]);
-        const uint8_t* payload = data + 2;
-        size_t payloadLen = len - 2;
+        out.clear();
 
-        // Decompress if needed
-        std::vector<uint8_t> decompressed;
-        const uint8_t* batchData = payload;
-        size_t batchLen = payloadLen;
+        auto parseBatch = [](const uint8_t* batchData, size_t batchLen, std::vector<SubPacket>& outPackets) {
+            size_t offset = 0;
+            while (offset < batchLen) {
+                uint32_t totalLen = readVarInt(batchData, batchLen, offset);
+                if (totalLen == 0 || offset + totalLen > batchLen) return false;
 
-        if (method != CompressionMethod::None) {
-            if (!decompressor) return false;
-            if (!decompressor(payload, payloadLen, decompressed)) return false;
-            batchData = decompressed.data();
-            batchLen = decompressed.size();
-        }
+                size_t subStart = offset;
+                size_t subEnd = subStart + totalLen;
+                uint32_t packetHeader = readVarInt(batchData, subEnd, offset);
+                if (offset <= subStart || offset > subEnd) return false;
 
-        // Parse batched sub-packets
-        size_t offset = 0;
-        while (offset < batchLen) {
-            uint32_t totalLen = readVarInt(batchData, batchLen, offset);
-            if (totalLen == 0 || offset + totalLen > batchLen) break;
+                SubPacket sp;
+                sp.packetId = packetHeader & 0x3FFu;
+                sp.senderSubClient = static_cast<uint8_t>((packetHeader >> 10) & 0x3u);
+                sp.targetSubClient = static_cast<uint8_t>((packetHeader >> 12) & 0x3u);
+                if (offset < subEnd) {
+                    sp.payload.assign(batchData + offset, batchData + subEnd);
+                }
+                offset = subEnd;
 
-            size_t subStart = offset;
-            uint32_t packetId = readVarInt(batchData, batchLen, offset);
-            size_t idSize = offset - subStart;
-            size_t dataSize = totalLen - idSize;
-
-            SubPacket sp;
-            sp.packetId = packetId;
-            if (dataSize > 0 && offset + dataSize <= batchLen) {
-                sp.payload.assign(batchData + offset, batchData + offset + dataSize);
+                outPackets.push_back(std::move(sp));
             }
-            offset = subStart + totalLen;
+            return offset == batchLen && !outPackets.empty();
+        };
 
-            out.push_back(std::move(sp));
+        auto isKnownCompression = [](uint8_t value) {
+            return value == static_cast<uint8_t>(CompressionMethod::Zlib) ||
+                   value == static_cast<uint8_t>(CompressionMethod::Snappy) ||
+                   value == static_cast<uint8_t>(CompressionMethod::None);
+        };
+
+        auto decodeStandard = [&](CompressionMethod method) {
+            if (outMethod) *outMethod = method;
+
+            const uint8_t* payload = data + 2;
+            size_t payloadLen = len - 2;
+
+            std::vector<uint8_t> decompressed;
+            const uint8_t* batchData = payload;
+            size_t batchLen = payloadLen;
+
+            if (method == CompressionMethod::None) {
+                return parseBatch(batchData, batchLen, out);
+            }
+
+            // Preferred path for compressed payload.
+            if (decompressor && decompressor(payload, payloadLen, decompressed)) {
+                batchData = decompressed.data();
+                batchLen = decompressed.size();
+                if (parseBatch(batchData, batchLen, out)) {
+                    return true;
+                }
+                out.clear();
+            }
+
+            // Compatibility path: some clients keep the compression method byte
+            // but send payload as plain (uncompressed) batch when below threshold.
+            return parseBatch(payload, payloadLen, out);
+        };
+
+        auto decodePreLogin = [&]() {
+            if (outMethod) *outMethod = CompressionMethod::None;
+            return parseBatch(data + 1, len - 1, out);
+        };
+
+        if (format == GamePacketFormat::PreLoginNoCompression) {
+            return decodePreLogin();
         }
 
-        return !out.empty();
+        if (format == GamePacketFormat::Standard) {
+            auto method = static_cast<CompressionMethod>(data[1]);
+            if (!isKnownCompression(data[1])) return false;
+            return decodeStandard(method);
+        }
+
+        // Auto: prefer standard if byte 1 looks like compression.
+        if (isKnownCompression(data[1])) {
+            if (decodeStandard(static_cast<CompressionMethod>(data[1]))) {
+                return true;
+            }
+            out.clear();
+        }
+
+        return decodePreLogin();
+    }
+
+    static bool isKnownCompressionMethod(uint8_t value) {
+        return value == static_cast<uint8_t>(CompressionMethod::Zlib) ||
+               value == static_cast<uint8_t>(CompressionMethod::Snappy) ||
+               value == static_cast<uint8_t>(CompressionMethod::None);
     }
 
     /// Check if a raw packet is a GamePacket (0xFE)
