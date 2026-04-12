@@ -165,35 +165,6 @@ jobs:
           body: |
             ${{ steps.changelog.outputs.body }}
 
-            ## Downloads
-
-            **Core** (generic RakNet):
-            | Platform | Release | Debug |
-            |----------|---------|-------|
-            | Windows x64 | `fishnet-${{ github.ref_name }}-windows-x64-release.zip` | `fishnet-${{ github.ref_name }}-windows-x64-debug.zip` |
-            | Windows arm64 | `fishnet-${{ github.ref_name }}-windows-arm64-release.zip` | `fishnet-${{ github.ref_name }}-windows-arm64-debug.zip` |
-            | macOS x64 | `fishnet-${{ github.ref_name }}-macos-x64-release.zip` | `fishnet-${{ github.ref_name }}-macos-x64-debug.zip` |
-            | macOS arm64 | `fishnet-${{ github.ref_name }}-macos-arm64-release.zip` | `fishnet-${{ github.ref_name }}-macos-arm64-debug.zip` |
-            | Linux x64 | `fishnet-${{ github.ref_name }}-linux-x64-release.zip` | `fishnet-${{ github.ref_name }}-linux-x64-debug.zip` |
-            | Linux arm64 | `fishnet-${{ github.ref_name }}-linux-arm64-release.zip` | `fishnet-${{ github.ref_name }}-linux-arm64-debug.zip` |
-
-            **Bedrock** (core + Minecraft Bedrock extension):
-            | Platform | Release | Debug |
-            |----------|---------|-------|
-            | Windows x64 | `fishnet-${{ github.ref_name }}-windows-x64-bedrock-release.zip` | `fishnet-${{ github.ref_name }}-windows-x64-bedrock-debug.zip` |
-            | Windows arm64 | `fishnet-${{ github.ref_name }}-windows-arm64-bedrock-release.zip` | `fishnet-${{ github.ref_name }}-windows-arm64-bedrock-debug.zip` |
-            | macOS x64 | `fishnet-${{ github.ref_name }}-macos-x64-bedrock-release.zip` | `fishnet-${{ github.ref_name }}-macos-x64-bedrock-debug.zip` |
-            | macOS arm64 | `fishnet-${{ github.ref_name }}-macos-arm64-bedrock-release.zip` | `fishnet-${{ github.ref_name }}-macos-arm64-bedrock-debug.zip` |
-            | Linux x64 | `fishnet-${{ github.ref_name }}-linux-x64-bedrock-release.zip` | `fishnet-${{ github.ref_name }}-linux-x64-bedrock-debug.zip` |
-            | Linux arm64 | `fishnet-${{ github.ref_name }}-linux-arm64-bedrock-release.zip` | `fishnet-${{ github.ref_name }}-linux-arm64-bedrock-debug.zip` |
-
-            > Debug builds include packet logging (`FISHNET_DEBUG`) and `.pdb` files on Windows.
-
-            ## SHA256 Checksums
-            ```
-            ${{ steps.sha256.outputs.sums }}
-            ```
-
             ## License
             GPL-3.0 — see [LICENSE](LICENSE).
             Original RakNet: https://github.com/facebookarchive/RakNet (BSD 2-Clause)
