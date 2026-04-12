@@ -1,49 +1,19 @@
 # Getting Started
 
-## 1. Download
-
-Go to [Releases](../../releases) and download the archive for your platform:
-
-| Archive | Contents |
-|---------|----------|
-| `fishnet-<tag>-<platform>.zip` | Core RakNet only |
-| `fishnet-<tag>-<platform>-bedrock.zip` | Core + Minecraft Bedrock extension |
-
-Verify the download:
-```bash
-sha256sum -c SHA256SUMS.txt
-```
-
-Each archive contains:
-```
-fishnet-v0.1.0-windows-x64/
-├── include/     # Headers
-├── lib/         # fishnet.lib / libfishnet.a
-├── bin/         # fishnet.dll / libfishnet.so / libfishnet.dylib + examples
-└── LICENSE
-```
-
-## 2. Setup
-
-Extract the archive and point your build system to `include/` and `lib/`.
-
----
-
 ### xmake
 
 ```lua
 -- xmake.lua
 add_rules("mode.release", "mode.debug")
 
+add_repositories("my-repo https://github.com/GameFriendsTeam/xmake-repo.git")
+add_requires("fishnet")
+
 target("myapp")
     set_kind("binary")
     set_languages("c++20")
     add_files("src/*.cpp")
-
-    -- FishNet paths (adjust to where you extracted)
-    add_includedirs("fishnet/include")
-    add_linkdirs("fishnet/lib")
-    add_links("fishnet")
+    add_packages("fishnet")
 
     -- Windows needs these
     if is_plat("windows") then
@@ -54,73 +24,6 @@ target("myapp")
 ```bash
 xmake build
 xmake run myapp
-```
-
----
-
-### CMake
-
-```cmake
-# CMakeLists.txt
-cmake_minimum_required(VERSION 3.16)
-project(myapp LANGUAGES CXX)
-set(CMAKE_CXX_STANDARD 20)
-
-add_executable(myapp src/main.cpp)
-
-# FishNet paths (adjust to where you extracted)
-set(FISHNET_DIR "${CMAKE_SOURCE_DIR}/fishnet")
-
-target_include_directories(myapp PRIVATE "${FISHNET_DIR}/include")
-target_link_directories(myapp PRIVATE "${FISHNET_DIR}/lib")
-target_link_libraries(myapp PRIVATE fishnet)
-
-# Windows needs these
-if(WIN32)
-    target_link_libraries(myapp PRIVATE ws2_32 iphlpapi)
-endif()
-```
-
-```bash
-mkdir build && cd build
-cmake ..
-cmake --build .
-```
-
----
-
-### Makefile
-
-```makefile
-# Makefile
-CXX      = g++
-CXXFLAGS = -std=c++20 -Wall -O2
-FISHNET  = ./fishnet
-
-INCLUDES = -I$(FISHNET)/include
-LDFLAGS  = -L$(FISHNET)/lib -lfishnet -lpthread
-
-# macOS: add rpath
-UNAME := $(shell uname)
-ifeq ($(UNAME), Darwin)
-    LDFLAGS += -Wl,-rpath,$(FISHNET)/lib
-endif
-ifeq ($(UNAME), Linux)
-    LDFLAGS += -Wl,-rpath,$(FISHNET)/lib
-endif
-
-all: myapp
-
-myapp: src/main.cpp
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $^ $(LDFLAGS)
-
-clean:
-	rm -f myapp
-```
-
-```bash
-make
-./myapp
 ```
 
 ---
@@ -204,8 +107,8 @@ int main() {
 
     fishnet::bedrock::BedrockServer server(19132);
     server.setServerName("My Bedrock Server");
-    server.setProtocolVersion(729);
-    server.setGameVersion("1.21.50");
+    server.setProtocolVersion(944);
+    server.setGameVersion("1.26.10");
     server.setPlayerCount(0, 50);
 
     server.setGamePacketCallback([](uint32_t packetId,
@@ -237,7 +140,7 @@ On Linux/macOS, either:
 If you want to build FishNet itself instead of using a release:
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/GameFriendsTeam/FishNet.git
 cd fishnet
 
 # Core only
