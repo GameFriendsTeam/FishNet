@@ -12,8 +12,8 @@ All notable changes to FishNet will be documented in this file.
 -   GamePacket types
 
 ### Updated:
-    docs
-    github actions
+-    docs
+-    github actions
 
 ## \[v2.0.0\] - 2025.04.04
 
