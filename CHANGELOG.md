@@ -2,6 +2,15 @@
 
 All notable changes to FishNet will be documented in this file.
 
+## \[v2.1.0\] - 2025.04.12
+
+### Fixed:
+-   GamePacket Format
+
+### Addded:
+-   IP address change
+-   GamePacket types
+
 ## \[v2.0.0\] - 2025.04.04
 
 ### Initial Alpha Release
