@@ -1,5 +1,5 @@
 set_project("fishnet")
-set_version("2.0.0")
+set_version("2.2.1")
 set_languages("c++20")
 
 option("bedrock")

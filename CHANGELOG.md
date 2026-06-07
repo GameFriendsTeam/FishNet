@@ -2,7 +2,7 @@
 
 All notable changes to FishNet will be documented in this file.
 
-## \[v2.2.0\] - 2026.06.07
+## \[v2.2.1\] - 2026.06.07
 
 ### Added:
 - Modular includes architecture: headers are now included individually (e.g., `<fishnet/FishServer.h>`, `<fishnet/bedrock/BedrockServer.h>`).

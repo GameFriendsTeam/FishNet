@@ -51,13 +51,12 @@ jobs:
           $tag = "${{ github.ref_name }}"
           $name = "fishnet-${tag}-${{ matrix.name }}-release"
           New-Item -ItemType Directory -Path "dist/$name/include","dist/$name/lib","dist/$name/bin" -Force
-          Copy-Item -Recurse "src/include/*" "dist/$name/include/"
-          if ("${{ matrix.bedrock }}" -eq "true") { Copy-Item -Recurse "src-bedrock/include/*" "dist/$name/include/" }
+          Copy-Item -Recurse "include/*" "dist/$name/include/"
+          if ("${{ matrix.bedrock }}" -eq "true") { Copy-Item -Recurse "include-bedrock/*" "dist/$name/include/" }
           Copy-Item "LICENSE" "dist/$name/"
           $bin = "bin/release/windows"
           if (Test-Path "$bin/fishnet.dll") { Copy-Item "$bin/fishnet.dll" "dist/$name/bin/" }
           if (Test-Path "$bin/fishnet.lib") { Copy-Item "$bin/fishnet.lib" "dist/$name/lib/" }
-          Get-ChildItem "$bin/example_*" -ErrorAction SilentlyContinue | Copy-Item -Destination "dist/$name/bin/"
           Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
 
       - name: Package Release (macOS/Linux)
@@ -66,12 +65,11 @@ jobs:
           TAG="${{ github.ref_name }}"
           NAME="fishnet-${TAG}-${{ matrix.name }}-release"
           mkdir -p "dist/${NAME}/include" "dist/${NAME}/lib" "dist/${NAME}/bin"
-          cp -r src/include/* "dist/${NAME}/include/"
-          [ "${{ matrix.bedrock }}" = "true" ] && cp -r src-bedrock/include/* "dist/${NAME}/include/"
+          cp -r include/* "dist/${NAME}/include/"
+          [ "${{ matrix.bedrock }}" = "true" ] && cp -r include-bedrock/* "dist/${NAME}/include/"
           cp LICENSE "dist/${NAME}/"
           PLAT=$([ "$(uname)" = "Darwin" ] && echo "macosx" || echo "linux")
           cp bin/release/${PLAT}/libfishnet.* "dist/${NAME}/lib/" 2>/dev/null || true
-          cp bin/release/${PLAT}/example_* "dist/${NAME}/bin/" 2>/dev/null || true
           cd dist && zip -r "${NAME}.zip" "${NAME}"
 
       - name: Build Debug
@@ -86,14 +84,13 @@ jobs:
           $tag = "${{ github.ref_name }}"
           $name = "fishnet-${tag}-${{ matrix.name }}-debug"
           New-Item -ItemType Directory -Path "dist/$name/include","dist/$name/lib","dist/$name/bin" -Force
-          Copy-Item -Recurse "src/include/*" "dist/$name/include/"
-          if ("${{ matrix.bedrock }}" -eq "true") { Copy-Item -Recurse "src-bedrock/include/*" "dist/$name/include/" }
+          Copy-Item -Recurse "include/*" "dist/$name/include/"
+          if ("${{ matrix.bedrock }}" -eq "true") { Copy-Item -Recurse "include-bedrock/*" "dist/$name/include/" }
           Copy-Item "LICENSE" "dist/$name/"
           $bin = "bin/debug/windows"
           if (Test-Path "$bin/fishnet.dll") { Copy-Item "$bin/fishnet.dll" "dist/$name/bin/" }
           if (Test-Path "$bin/fishnet.lib") { Copy-Item "$bin/fishnet.lib" "dist/$name/lib/" }
           if (Test-Path "$bin/fishnet.pdb") { Copy-Item "$bin/fishnet.pdb" "dist/$name/bin/" }
-          Get-ChildItem "$bin/example_*" -ErrorAction SilentlyContinue | Copy-Item -Destination "dist/$name/bin/"
           Compress-Archive -Path "dist/$name" -DestinationPath "dist/$name.zip"
 
       - name: Package Debug (macOS/Linux)
@@ -102,12 +99,11 @@ jobs:
           TAG="${{ github.ref_name }}"
           NAME="fishnet-${TAG}-${{ matrix.name }}-debug"
           mkdir -p "dist/${NAME}/include" "dist/${NAME}/lib" "dist/${NAME}/bin"
-          cp -r src/include/* "dist/${NAME}/include/"
-          [ "${{ matrix.bedrock }}" = "true" ] && cp -r src-bedrock/include/* "dist/${NAME}/include/"
+          cp -r include/* "dist/${NAME}/include/"
+          [ "${{ matrix.bedrock }}" = "true" ] && cp -r include-bedrock/* "dist/${NAME}/include/"
           cp LICENSE "dist/${NAME}/"
           PLAT=$([ "$(uname)" = "Darwin" ] && echo "macosx" || echo "linux")
           cp bin/debug/${PLAT}/libfishnet.* "dist/${NAME}/lib/" 2>/dev/null || true
-          cp bin/debug/${PLAT}/example_* "dist/${NAME}/bin/" 2>/dev/null || true
           cd dist && zip -r "${NAME}.zip" "${NAME}"
 
       - name: Upload artifacts
