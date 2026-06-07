@@ -2,6 +2,22 @@
 
 All notable changes to FishNet will be documented in this file.
 
+## \[v2.2.0\] - 2026.06.07
+
+### Added:
+- Modular includes architecture: headers are now included individually (e.g., `<fishnet/FishServer.h>`, `<fishnet/bedrock/BedrockServer.h>`).
+- Separated Bedrock extension headers into an isolated `include-bedrock` directory that is only exposed when the `bedrock` configuration is enabled.
+
+### Removed:
+- Removed the monolithic `fishnet.h` and `fishnet-bedrock.h` umbrella headers.
+- Removed the deprecated `--examples` build parameter.
+
+### Fixed:
+- Fixed multiple packet header files containing duplicate `#pragma once` directives.
+
+### Updated:
+- Updated `getting-started.md`, `api-reference.md`, and `architecture.md` to reflect the new modular include paths and directory structure.
+
 ## \[v2.1.0\] - 2025.04.12
 
 ### Fixed:
@@ -12,8 +28,8 @@ All notable changes to FishNet will be documented in this file.
 -   GamePacket types
 
 ### Updated:
--    docs
--    github actions
+    docs
+    github actions
 
 ## \[v2.0.0\] - 2025.04.04
 
@@ -35,5 +51,5 @@ All notable changes to FishNet will be documented in this file.
 -   Compression API (Zlib/Snappy/None) via user-supplied functions
 -   Cross-platform: Windows (x64/arm64), macOS (x64/arm64), Linux (x64/arm64)
 -   Shared library build (fishnet.dll / [libfishnet.so](http://libfishnet.so) / libfishnet.dylib)
--   xmake build system with --bedrock and --examples options
+-   xmake build system with --bedrock option
 -   Packet logging in debug builds (FISHNET\_DEBUG)

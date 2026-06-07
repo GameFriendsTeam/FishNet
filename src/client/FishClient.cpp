@@ -5,7 +5,7 @@
  * Provides connect/disconnect lifecycle and delegates sending.
  */
 
-#include "fishnet/FishClient.h"
+#include <fishnet/FishClient.h>
 
 namespace fishnet {
 

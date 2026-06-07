@@ -5,7 +5,7 @@
  * and exposes a clean server API with callbacks.
  */
 
-#include "fishnet/FishServer.h"
+#include <fishnet/FishServer.h>
 
 namespace fishnet {
 

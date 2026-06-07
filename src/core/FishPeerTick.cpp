@@ -7,11 +7,11 @@
  * retry client handshake if still in progress.
  */
 
-#include "fishnet/FishPeer.h"
-#include "fishnet/packets/ConnectedPing.h"
-#include "fishnet/packets/OpenConnectionRequest1.h"
-#include "fishnet/packets/OpenConnectionRequest2.h"
-#include "fishnet/packets/ConnectionRequest.h"
+#include <fishnet/FishPeer.h>
+#include <fishnet/packets/ConnectedPing.h>
+#include <fishnet/packets/OpenConnectionRequest1.h>
+#include <fishnet/packets/OpenConnectionRequest2.h>
+#include <fishnet/packets/ConnectionRequest.h>
 
 namespace fishnet {
 

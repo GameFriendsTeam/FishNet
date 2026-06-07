@@ -28,7 +28,7 @@ xmake build
 ### Server
 
 ```cpp
-#include <fishnet.h>
+#include <fishnet/FishServer.h>
 #include <iostream>
 #include <thread>
 #include <atomic>

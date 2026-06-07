@@ -31,10 +31,15 @@ Complete documentation of every public class, method, type, and constant in Fish
 
 ## Headers
 
-| Header | Description |
-|--------|-------------|
-| `<fishnet.h>` | Everything in core FishNet (no Bedrock) |
-| `<fishnet-bedrock.h>` | Core + all Bedrock extensions |
+FishNet uses modular headers. You only need to include the specific components you use.
+
+| Example Component | Header Path |
+|-------------------|-------------|
+| `FishServer` | `<fishnet/FishServer.h>` |
+| `FishClient` | `<fishnet/FishClient.h>` |
+| `Connection` | `<fishnet/Connection.h>` |
+| `BedrockServer` | `<fishnet/bedrock/BedrockServer.h>` |
+| `BedrockClient` | `<fishnet/bedrock/BedrockClient.h>` |
 
 ---
 

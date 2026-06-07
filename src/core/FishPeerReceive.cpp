@@ -8,8 +8,8 @@
  * NAK detection: sends NAK for gaps in received sequence numbers.
  */
 
-#include "fishnet/FishPeer.h"
-#include "fishnet/packets/AckNak.h"
+#include <fishnet/FishPeer.h>
+#include <fishnet/packets/AckNak.h>
 #include <cstdio>
 
 namespace fishnet {

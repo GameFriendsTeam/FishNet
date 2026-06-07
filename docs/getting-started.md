@@ -32,7 +32,7 @@ xmake run myapp
 
 ### Server
 ```cpp
-#include <fishnet.h>
+#include <fishnet/FishServer.h>
 #include <iostream>
 #include <thread>
 #include <csignal>
@@ -70,7 +70,7 @@ int main() {
 
 ### Client
 ```cpp
-#include <fishnet.h>
+#include <fishnet/FishClient.h>
 #include <iostream>
 #include <thread>
 
@@ -93,7 +93,7 @@ int main() {
 
 ### Bedrock Server
 ```cpp
-#include <fishnet-bedrock.h>
+#include <fishnet/bedrock/BedrockServer.h>
 #include <iostream>
 #include <thread>
 #include <csignal>
@@ -151,11 +151,7 @@ xmake build
 xmake f -m release --bedrock=y
 xmake build
 
-# With examples
-xmake f -m release --bedrock=y --examples=y
-xmake build
-
 # Debug (with packet logging)
-xmake f -m debug --bedrock=y --examples=y
+xmake f -m debug --bedrock=y
 xmake build
 ```

@@ -8,17 +8,17 @@
  *   Initiates connection via connectTo().
  */
 
-#include "fishnet/FishPeer.h"
-#include "fishnet/packets/UnconnectedPing.h"
-#include "fishnet/packets/UnconnectedPong.h"
-#include "fishnet/packets/OpenConnectionRequest1.h"
-#include "fishnet/packets/OpenConnectionReply1.h"
-#include "fishnet/packets/OpenConnectionRequest2.h"
-#include "fishnet/packets/OpenConnectionReply2.h"
-#include "fishnet/packets/ConnectionRequest.h"
-#include "fishnet/packets/ConnectionRequestAccepted.h"
-#include "fishnet/packets/NewIncomingConnection.h"
-#include "fishnet/packets/ConnectedPing.h"
+#include <fishnet/FishPeer.h>
+#include <fishnet/packets/UnconnectedPing.h>
+#include <fishnet/packets/UnconnectedPong.h>
+#include <fishnet/packets/OpenConnectionRequest1.h>
+#include <fishnet/packets/OpenConnectionReply1.h>
+#include <fishnet/packets/OpenConnectionRequest2.h>
+#include <fishnet/packets/OpenConnectionReply2.h>
+#include <fishnet/packets/ConnectionRequest.h>
+#include <fishnet/packets/ConnectionRequestAccepted.h>
+#include <fishnet/packets/NewIncomingConnection.h>
+#include <fishnet/packets/ConnectedPing.h>
 
 namespace fishnet {
 

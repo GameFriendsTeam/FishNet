@@ -6,8 +6,8 @@
  * Manages connection table with address hashing.
  */
 
-#include "fishnet/FishPeer.h"
-#include "fishnet/packets/DisconnectionNotification.h"
+#include <fishnet/FishPeer.h>
+#include <fishnet/packets/DisconnectionNotification.h>
 
 #include <random>
 #include <cstdio>
