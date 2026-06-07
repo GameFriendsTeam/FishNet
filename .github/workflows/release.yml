@@ -52,7 +52,7 @@ jobs:
           $name = "fishnet-${tag}-${{ matrix.name }}-release"
           New-Item -ItemType Directory -Path "dist/$name/include","dist/$name/lib","dist/$name/bin" -Force
           Copy-Item -Recurse "include/*" "dist/$name/include/"
-          if ("${{ matrix.bedrock }}" -eq "true") { Copy-Item -Recurse "include-bedrock/*" "dist/$name/include/" }
+          if ("${{ matrix.bedrock }}" -eq "true") { Copy-Item -Recurse -Force "include-bedrock/*" "dist/$name/include/" }
           Copy-Item "LICENSE" "dist/$name/"
           $bin = "bin/release/windows"
           if (Test-Path "$bin/fishnet.dll") { Copy-Item "$bin/fishnet.dll" "dist/$name/bin/" }
@@ -85,7 +85,7 @@ jobs:
           $name = "fishnet-${tag}-${{ matrix.name }}-debug"
           New-Item -ItemType Directory -Path "dist/$name/include","dist/$name/lib","dist/$name/bin" -Force
           Copy-Item -Recurse "include/*" "dist/$name/include/"
-          if ("${{ matrix.bedrock }}" -eq "true") { Copy-Item -Recurse "include-bedrock/*" "dist/$name/include/" }
+          if ("${{ matrix.bedrock }}" -eq "true") { Copy-Item -Recurse -Force "include-bedrock/*" "dist/$name/include/" }
           Copy-Item "LICENSE" "dist/$name/"
           $bin = "bin/debug/windows"
           if (Test-Path "$bin/fishnet.dll") { Copy-Item "$bin/fishnet.dll" "dist/$name/bin/" }
