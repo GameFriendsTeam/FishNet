@@ -2,6 +2,12 @@
 
 All notable changes to FishNet will be documented in this file.
 
+## \[v2.2.2\] - 2026.06.07
+
+### Fixed:
+- Fixed `xmake install` not copying header files to the installation directory.
+- Fixed GitHub Actions release workflow failing on Windows due to `Copy-Item` directory merging issues.
+
 ## \[v2.2.1\] - 2026.06.07
 
 ### Added:
