@@ -88,10 +88,12 @@ target("fishnet")
     add_files("src/**.cpp")
 
     add_includedirs("include", {public = true})
+    add_headerfiles("include/(**.h)")
 
     if has_config("bedrock") then
         add_files("src-bedrock/**.cpp")
         add_includedirs("include-bedrock", {public = true})
+        add_headerfiles("include-bedrock/(**.h)")
         add_defines("FISHNET_BEDROCK", {public = true})
     end
 
