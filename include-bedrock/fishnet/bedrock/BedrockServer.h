@@ -11,15 +11,19 @@
  *   - Users receive a GamePacketCallback with (packetId, payload, sender)
  *   - Outgoing sub-packets are wrapped into 0xFE with optional compression
  *   - Users can set compress/decompress functions for Zlib/Snappy
+ *   - Optional Bedrock encryption handshake + AES payload encryption per peer
  */
 
 #include <fishnet/FishServer.h>
 #include <fishnet/bedrock/BedrockMotd.h>
+#include <fishnet/bedrock/BedrockEncryption.h>
+#include <fishnet/bedrock/LoginChain.h>
 #include <fishnet/bedrock/GamePacket.h>
 #include <memory>
 #include <mutex>
 #include <functional>
 #include <string>
+#include <unordered_map>
 
 namespace fishnet::bedrock {
 
@@ -67,6 +71,12 @@ public:
     const fishnet::FishServer& getFishServer() const { return *server_; }
     BedrockMotd& getMotd() { return motd_; }
 
+    // Bedrock login encryption
+    std::string beginEncryptionHandshake(const fishnet::Address& peer, const std::string& loginChainJson);
+    bool activatePeerEncryption(const fishnet::Address& peer);
+    bool isPeerEncrypted(const fishnet::Address& peer) const;
+    bool getPeerIdentity(const fishnet::Address& peer, ParsedLoginIdentity& out) const;
+
 private:
     std::unique_ptr<fishnet::FishServer> server_;
     BedrockMotd motd_;
@@ -77,7 +87,14 @@ private:
     GamePacket::DecompressFunc decompressor_ = nullptr;
     CompressionMethod compression_ = CompressionMethod::None;
 
+    mutable std::mutex cryptoMutex_;
+    std::unordered_map<fishnet::Address, PeerCryptoState, fishnet::Address::Hash> cryptoSessions_;
+    std::unordered_map<fishnet::Address, ParsedLoginIdentity, fishnet::Address::Hash> peerIdentities_;
+
     void onRawPacket(const uint8_t* data, size_t len, const fishnet::Address& sender);
+    void clearPeerState(const fishnet::Address& peer);
+    std::vector<uint8_t> maybeEncryptFrame(const std::vector<uint8_t>& frame, const fishnet::Address& dest);
+    std::vector<uint8_t> maybeDecryptFrame(const uint8_t* data, size_t len, const fishnet::Address& sender);
 };
 
 } // namespace fishnet::bedrock

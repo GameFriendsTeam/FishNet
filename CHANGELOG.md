@@ -2,6 +2,17 @@
 
 All notable changes to FishNet will be documented in this file.
 
+## \[v2.2.3\] - 2026.06.11
+
+### Added:
+- Bedrock post-login encryption: ECDH key exchange (secp384r1), AES-256-CTR packet encryption, SHA-256 trailer.
+- ES384 JWT generation for `ServerToClientHandshake` via OpenSSL.
+- `LoginChain` parser: extracts client public key from Xbox Live `Token` JWT (`cpk`) or legacy `identityPublicKey`.
+- Bedrock server API: `beginEncryptionHandshake()`, `activatePeerEncryption()`, `isPeerEncrypted()`, `getPeerIdentity()`.
+
+### Updated:
+- `bedrock=y` xmake config now requires OpenSSL.
+
 ## \[v2.2.2\] - 2026.06.07
 
 ### Fixed:

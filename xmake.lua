@@ -1,5 +1,5 @@
 set_project("fishnet")
-set_version("2.2.2")
+set_version("2.2.3")
 set_languages("c++20")
 
 option("bedrock")
@@ -7,6 +7,10 @@ option("bedrock")
     set_showmenu(true)
     set_description("Include Minecraft Bedrock extension")
 option_end()
+
+if has_config("bedrock") then
+    add_requires("openssl")
+end
 
 rule("fishnet.platform")
     on_load(function (target)
@@ -91,6 +95,7 @@ target("fishnet")
     add_headerfiles("include/(**.h)")
 
     if has_config("bedrock") then
+        add_packages("openssl")
         add_files("src-bedrock/**.cpp")
         add_includedirs("include-bedrock", {public = true})
         add_headerfiles("include-bedrock/(**.h)")
