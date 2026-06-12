@@ -73,6 +73,7 @@ public:
 
     // Bedrock login encryption
     std::string beginEncryptionHandshake(const fishnet::Address& peer, const std::string& loginChainJson);
+    // Call after sending ServerToClientHandshake. ClientToServerHandshake arrives encrypted.
     bool activatePeerEncryption(const fishnet::Address& peer);
     bool isPeerEncrypted(const fishnet::Address& peer) const;
     bool getPeerIdentity(const fishnet::Address& peer, ParsedLoginIdentity& out) const;

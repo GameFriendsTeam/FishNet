@@ -223,14 +223,14 @@ std::vector<uint8_t> BedrockServer::maybeEncryptFrame(const std::vector<uint8_t>
     }
 
     std::vector<uint8_t> encryptedPayload;
-    if (!BedrockEncryption::encryptPayload(frame.data() + 2, frame.size() - 2, it->second, encryptedPayload)) {
+    // Bedrock encrypts everything after 0xFE (compression byte + batch), not just the batch body.
+    if (!BedrockEncryption::encryptPayload(frame.data() + 1, frame.size() - 1, it->second, encryptedPayload)) {
         return frame;
     }
 
     std::vector<uint8_t> out;
-    out.reserve(2 + encryptedPayload.size());
+    out.reserve(1 + encryptedPayload.size());
     out.push_back(frame[0]);
-    out.push_back(frame[1]);
     out.insert(out.end(), encryptedPayload.begin(), encryptedPayload.end());
     return out;
 }
@@ -247,30 +247,44 @@ std::vector<uint8_t> BedrockServer::maybeDecryptFrame(const uint8_t* data, size_
     }
 
     std::vector<uint8_t> decryptedPayload;
-    if (!BedrockEncryption::decryptPayload(data + 2, len - 2, it->second, decryptedPayload)) {
-        return std::vector<uint8_t>(data, data + len);
+    if (!BedrockEncryption::decryptPayload(data + 1, len - 1, it->second, decryptedPayload)) {
+        return {};
     }
 
     std::vector<uint8_t> out;
-    out.reserve(2 + decryptedPayload.size());
+    out.reserve(1 + decryptedPayload.size());
     out.push_back(data[0]);
-    out.push_back(data[1]);
     out.insert(out.end(), decryptedPayload.begin(), decryptedPayload.end());
     return out;
 }
 
 void BedrockServer::onRawPacket(const uint8_t* data, size_t len, const fishnet::Address& sender) {
-    if (len >= 2 && data[0] == GAME_PACKET_ID) {
-        const auto working = maybeDecryptFrame(data, len, sender);
+    if (len < 2 || data[0] != GAME_PACKET_ID) {
+        return;
+    }
+
+    const auto dispatch = [&](const uint8_t* frameData, size_t frameLen) -> bool {
         std::vector<SubPacket> packets;
-        if (GamePacket::unwrap(working.data(), working.size(), packets, decompressor_, GamePacketFormat::Auto)) {
-            if (gamePacketCallback_) {
-                for (const auto& sp : packets) {
-                    gamePacketCallback_(sp.packetId, sp.payload, sender);
-                }
+        if (!GamePacket::unwrap(frameData, frameLen, packets, decompressor_, GamePacketFormat::Auto)) {
+            return false;
+        }
+        if (gamePacketCallback_) {
+            for (const auto& sp : packets) {
+                gamePacketCallback_(sp.packetId, sp.payload, sender);
             }
         }
+        return true;
+    };
+
+    if (isPeerEncrypted(sender)) {
+        const auto decrypted = maybeDecryptFrame(data, len, sender);
+        if (!decrypted.empty()) {
+            dispatch(decrypted.data(), decrypted.size());
+        }
+        return;
     }
+
+    dispatch(data, len);
 }
 
 } // namespace fishnet::bedrock

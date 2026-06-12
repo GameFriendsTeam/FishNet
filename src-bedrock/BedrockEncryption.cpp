@@ -13,7 +13,6 @@
 
 #include <array>
 #include <cstring>
-#include <stdexcept>
 
 namespace fishnet::bedrock {
 namespace {
@@ -297,12 +296,20 @@ bool BedrockEncryption::decryptPayload(const uint8_t* data, size_t len, PeerCryp
         return false;
     }
 
-    if (!aesCtrCrypt(state.aesKey, data, len, out)) {
+    std::vector<uint8_t> decrypted;
+    if (!aesCtrCrypt(state.aesKey, data, len, decrypted)) {
         return false;
     }
 
-    out.resize(out.size() - 8);
+    const size_t payloadLen = decrypted.size() - 8;
+    const auto expectedTrailer = makeTrailer(state.recvCounter, decrypted.data(), payloadLen, state.aesKey);
+    if (std::memcmp(expectedTrailer.data(), decrypted.data() + payloadLen, expectedTrailer.size()) != 0) {
+        return false;
+    }
+
+    decrypted.resize(payloadLen);
     state.recvCounter++;
+    out = std::move(decrypted);
     return true;
 }
 

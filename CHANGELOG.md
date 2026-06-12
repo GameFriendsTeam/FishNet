@@ -2,6 +2,12 @@
 
 All notable changes to FishNet will be documented in this file.
 
+## \[v2.2.4\] - 2026.06.11
+
+### Fixed:
+- Bedrock encryption now covers the compression byte as well as the batch payload (everything after `0xFE`), matching CloudBurst/gophertunnel.
+- Decryption verifies the SHA-256 trailer before advancing the receive counter; failed decrypts no longer desync the session.
+
 ## \[v2.2.3\] - 2026.06.11
 
 ### Added:
